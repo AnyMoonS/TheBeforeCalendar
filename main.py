@@ -1,7 +1,8 @@
 import sys
 
-from PyQt5.QtGui import QTextCharFormat
-from PyQt5.QtWidgets import QApplication, QMainWindow, QCalendarWidget, QLabel, QVBoxLayout, QDialog, QPushButton, QLineEdit, QHBoxLayout, QWidget
+from PyQt5.QtGui import QTextCharFormat, QColor, QFont
+from PyQt5.QtWidgets import QApplication, QMainWindow, QCalendarWidget, QLabel, QVBoxLayout, QDialog, QPushButton, \
+    QLineEdit, QHBoxLayout, QWidget
 from PyQt5.QtCore import QDate, QLocale, Qt
 
 
@@ -36,6 +37,7 @@ class CalculateDaysDialog(QDialog):
             # 计算中间的节假日天数
             holidays_between_dates = 0
             date = current_date.addDays(1)  # 从明天开始检查
+            # date = current_date
             while date <= input_date:
                 if date.toString("yyyy-MM-dd") in self.holidays:
                     holidays_between_dates += 1
@@ -52,19 +54,19 @@ class CalculateDaysDialog(QDialog):
             temp = 0
             while temp_date <= input_date:
                 if temp_date.toString("yyyy-MM-dd") in self.holidays:
-                    if temp ==0:
+                    if temp == 0:
                         temp += 1
-                    elif temp!=0:
+                    elif temp != 0:
                         holidays_dates += 1
                 temp_date = temp_date.addDays(1)
             weeks_difference_day = (days_difference % 7) - holidays_dates
 
             if effective_days_difference > 0:
                 self.result_label.setText(
-                    f"距离 {input_date.toString('yyyy-MM-dd')} 还有 {effective_days_difference} 天，或者说还有 {weeks_difference} 周,{weeks_difference_day} 天")
+                    f"距离 {input_date.toString('yyyy-MM-dd')} 还有 {effective_days_difference+1} 天，或者说还有 {weeks_difference+1} 周,{weeks_difference_day+1} 天")
             elif effective_days_difference < 0:
                 self.result_label.setText(
-                    f"{input_date.toString('yyyy-MM-dd')} 已经过去 {abs(effective_days_difference)} 天，或者说已经 {abs(weeks_difference)} 周,{abs(weeks_difference_day)} 天")
+                    f"{input_date.toString('yyyy-MM-dd')} 已经过去 {abs(effective_days_difference-1)} 天，或者说已经 {abs(weeks_difference-1)} 周,{abs(weeks_difference_day-1)} 天")
             else:
                 self.result_label.setText("今天就是这个日期！")
         except Exception as e:
@@ -100,11 +102,31 @@ class HolidayCalendar(QMainWindow):
         self.calendar = QCalendarWidget(self)
         self.calendar.setGridVisible(True)
         self.calendar.setDateRange(QDate(2024, 1, 1), QDate(2025, 12, 31))
+        # 创建一个文本字符格式对象
+        format = QTextCharFormat()
+
+        # 设置前景色（字体颜色）
+        format.setForeground(QColor(51, 51, 51))
+
+        # 设置背景色
+        format.setBackground(QColor(247, 247, 247))
+
+        # 设置字体
+        format.setFontFamily("Microsoft YaHei")
+        format.setFontPointSize(9)
+        format.setFontWeight(QFont.Medium)
+
+        # 使用setWeekdayTextFormat方法设置周末的格式
+        self.calendar.setWeekdayTextFormat(Qt.Saturday, format)
+        self.calendar.setWeekdayTextFormat(Qt.Sunday, format)
 
         self.holidays = {}
 
-        self.select_holidays_button = QPushButton("选择节假日", self)
+        self.select_holidays_button = QPushButton("增加节假日", self)
         self.select_holidays_button.clicked.connect(self.selectHolidays)
+
+        self.del_holidays_button = QPushButton("删除节假日", self)
+        self.del_holidays_button.clicked.connect(self.delHolidays)
 
         self.calculate_days_button = QPushButton("计算日期", self)
         self.calculate_days_button.clicked.connect(self.openCalculateDaysDialog)
@@ -114,6 +136,7 @@ class HolidayCalendar(QMainWindow):
         # 添加控件到布局
         layout.addWidget(self.calendar)
         layout.addWidget(self.select_holidays_button)
+        layout.addWidget(self.del_holidays_button)
         layout.addWidget(self.calculate_days_button)
 
         # 创建一个QWidget作为中心控件
@@ -140,24 +163,25 @@ class HolidayCalendar(QMainWindow):
                     date, holiday_name = line.strip().split(',')
                     self.holidays[date] = holiday_name
         except FileNotFoundError:
-            print("未找到节假日文件。未加载任何节假日。")
+            print("Holidays file not found. No holidays loaded.")
         except Exception as e:
-            print("加载节假日时出错:", e)
+            print("Error loading holidays:", e)
 
     def load_holidays(self):
         # 加载所有周末为节假日
-        start_date = self.calendar.minimumDate()
-        end_date = self.calendar.maximumDate()
-        current_date = start_date
-        while current_date <= end_date:
-            if current_date.dayOfWeek() == Qt.Saturday or current_date.dayOfWeek() == Qt.Sunday:
-                self.holidays[current_date.toString("yyyy-MM-dd")] = "周末"
-            current_date = current_date.addDays(1)
+        # start_date = self.calendar.minimumDate()
+        # end_date = self.calendar.maximumDate()
+        # current_date = start_date
+        # while current_date <= end_date:
+        #     if current_date.dayOfWeek() == Qt.Saturday or current_date.dayOfWeek() == Qt.Sunday:
+        #         self.holidays[current_date.toString("yyyy-MM-dd")] = "周末"
+        #     current_date = current_date.addDays(1)
+        pass
 
     def update_calendar(self):
         date = self.calendar.selectedDate()
         current_year = date.year()
-
+        self.calendar.setDateTextFormat(QDate(), QTextCharFormat())
         # 更新日历的节假日显示
         for day, holiday in self.holidays.items():
             if day.startswith(f"{current_year}-"):
@@ -178,7 +202,7 @@ class HolidayCalendar(QMainWindow):
                 for date, holiday_name in self.holidays.items():
                     file.write(f"{date},{holiday_name}\n")
         except Exception as e:
-            print("保存节假日时出错:", e)
+            print("Error saving holidays:", e)
 
     def selectHolidays(self):
         try:
@@ -186,10 +210,21 @@ class HolidayCalendar(QMainWindow):
             if dialog.exec_() == QDialog.Accepted:
                 selected_date = dialog.selectedDates()
                 self.holidays[selected_date.toString("yyyy-MM-dd")] = "节假日"
+                self.save_holidays_to_file()
                 self.update_calendar()
-                self.save_holidays_to_file()  # 保存节假日更新后的信息
         except Exception as e:
-            print("错误:", e)
+            print("Error:", e)
+
+    def delHolidays(self):
+        try:
+            dialog = SelectHolidaysDialog(self)
+            if dialog.exec_() == QDialog.Accepted:
+                selected_date = dialog.selectedDates()
+                del self.holidays[selected_date.toString("yyyy-MM-dd")]
+                self.save_holidays_to_file()
+                self.update_calendar()
+        except Exception as e:
+            print("Error:", e)
 
 
 if __name__ == "__main__":
